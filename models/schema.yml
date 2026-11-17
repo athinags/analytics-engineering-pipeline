@@ -1,0 +1,109 @@
+# Documentação + testes declarativos (mesmo conceito do schema.yml do dbt).
+version: 2
+
+models:
+  - name: stg_customers
+    description: "Clientes limpos e deduplicados. 1 linha por cliente."
+    columns:
+      - name: customer_id
+        description: "Chave primária do cliente."
+        tests: [not_null, unique]
+      - name: email
+        description: "E-mail em minúsculas e sem espaços."
+        tests: [not_null]
+      - name: state
+        description: "UF em maiúsculas; 'NA' quando não informada."
+        tests: [not_null]
+
+  - name: stg_products
+    description: "Catálogo de produtos tipado. 1 linha por produto."
+    columns:
+      - name: product_id
+        description: "Chave primária do produto."
+        tests: [not_null, unique]
+      - name: list_price
+        description: "Preço de tabela em BRL."
+        tests: [not_null]
+
+  - name: stg_orders
+    description: "Pedidos deduplicados com status padronizado."
+    columns:
+      - name: order_id
+        description: "Chave primária do pedido."
+        tests: [not_null, unique]
+      - name: status
+        description: "Status normalizado do pedido."
+        tests:
+          - accepted_values:
+              values: ['delivered', 'shipped', 'canceled']
+
+  - name: stg_order_items
+    description: "Itens de pedido válidos (quantidade > 0)."
+    columns:
+      - name: order_id
+        description: "Pedido ao qual o item pertence."
+        tests: [not_null]
+      - name: line_total
+        description: "quantity * unit_price."
+        tests: [not_null]
+
+  - name: fct_orders
+    description: "Fato de pedidos. 1 linha por pedido, com total e flag de receita."
+    columns:
+      - name: order_id
+        description: "Chave primária do pedido."
+        tests: [not_null, unique]
+      - name: customer_id
+        description: "Chave estrangeira para dim_customers."
+        tests:
+          - not_null
+          - relationships:
+              to: dim_customers
+              field: customer_id
+      - name: order_total
+        description: "Soma das linhas do pedido (BRL)."
+        tests: [not_null]
+      - name: is_revenue
+        description: "TRUE se o pedido não foi cancelado."
+        tests: [not_null]
+
+  - name: dim_customers
+    description: "Dimensão de clientes com métricas de histórico de compra."
+    columns:
+      - name: customer_id
+        description: "Chave primária do cliente."
+        tests: [not_null, unique]
+      - name: lifetime_revenue
+        description: "Receita acumulada do cliente (pedidos não cancelados)."
+        tests: [not_null]
+
+  - name: mart_monthly_revenue
+    description: "Receita mensal, ticket médio e crescimento MoM. Fonte para dashboards executivos."
+    columns:
+      - name: order_month
+        description: "Primeiro dia do mês."
+        tests: [not_null, unique]
+      - name: revenue
+        description: "Receita do mês (BRL)."
+        tests: [not_null]
+      - name: revenue_mom_pct
+        description: "Variação percentual da receita vs. mês anterior."
+
+  - name: mart_category_performance
+    description: "Receita, pedidos e unidades por categoria de produto."
+    columns:
+      - name: category
+        description: "Categoria do produto."
+        tests: [not_null, unique]
+
+  - name: mart_customer_rfm
+    description: "Segmentação RFM de clientes com pelo menos um pedido válido."
+    columns:
+      - name: customer_id
+        description: "Chave do cliente."
+        tests: [not_null, unique]
+      - name: segment
+        description: "Segmento de negócio derivado dos scores RFM."
+        tests:
+          - accepted_values:
+              values: ['Champions', 'At Risk', 'Promising', 'Hibernating']
