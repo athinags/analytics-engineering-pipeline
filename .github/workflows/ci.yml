@@ -10,4 +10,4 @@ jobs:
       - run: pip install duckdb pyyaml pytest
       - run: python -m src.generate_data
       - run: python -m src.pipeline      # falha o build se algum teste de qualidade falhar
-      - run: pytest -q
+      - run: python -m pytest -q
